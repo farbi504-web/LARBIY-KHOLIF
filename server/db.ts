@@ -1,8 +1,15 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import dns from 'node:dns';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import { Pool, type PoolClient } from 'pg';
+
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  // Ignore on runtimes that disallow changing DNS order
+}
 import type { PublicSettings } from '../src/shared/types.ts';
 import { DEFAULT_CATEGORIES } from '../src/shared/categories.ts';
 import { computeReviewStats } from '../src/shared/reviews.ts';
@@ -23,10 +30,15 @@ let sqliteDb: DatabaseSync | null = null;
 let activeBackend: DbBackend | null = null;
 let initPromise: Promise<void> | null = null;
 let dbClosed = false;
+let lastPgError: string | null = null;
 
 export function getDbBackend(): DbBackend {
   if (activeBackend) return activeBackend;
   return process.env.DATABASE_URL?.trim() ? 'postgresql' : 'sqlite';
+}
+
+export function getLastPgError(): string | null {
+  return lastPgError;
 }
 
 function normalizeParams(params: SqlParam[]): unknown[] {
@@ -512,7 +524,7 @@ async function seedDefaultData(): Promise<void> {
       fr: 'Samedi au Jeudi : 08h00 - 20h00',
     },
     announcement: {
-      ar: 'مرحباً بكم في مكتبة سليمي · كتب، قرطاسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
+      ar: 'مرحباً بكم في مكتبة سليمي · كتب، أدوات مدرسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
       fr: 'Bienvenue à la Librairie Slimi · Livres, papeterie, cosmétiques, jouets, accessoires & numérique',
     },
     announcementConfig: {
@@ -584,15 +596,23 @@ export async function initDb(): Promise<void> {
           await pool.query(stmt);
         }
         pgPool = pool;
+        lastPgError = null;
         activeBackend = 'postgresql';
         await seedDefaultData();
         console.log('[db] Connected to PostgreSQL (Supabase ready)');
+        return;
       } catch (err) {
         await pool.end().catch(() => undefined);
         const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(`Failed to connect/initialize PostgreSQL: ${redactDatabaseUrl(msg)}`);
+        const safeMsg = redactDatabaseUrl(msg);
+        lastPgError = safeMsg;
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error(`Failed to connect/initialize PostgreSQL: ${safeMsg}`);
+        }
+        console.warn(
+          `[db] PostgreSQL connection failed in development (${safeMsg}); falling back to local SQLite. Tip: use Supabase IPv4 Pooler (:6543) instead of Direct IPv6 (:5432).`,
+        );
       }
-      return;
     }
 
     if (process.env.NODE_ENV === 'production') {

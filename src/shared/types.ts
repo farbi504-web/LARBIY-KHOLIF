@@ -293,3 +293,38 @@ export interface AdminCustomerSummary extends Customer {
   totalSpent: number;
   lastOrderAt: string | null;
 }
+
+export interface DatabaseConnectionConfig {
+  provider: 'supabase' | 'postgres';
+  projectName: string;
+  projectRef: string;
+  region: string;
+  host: string;
+  port: number;
+  databaseName: string;
+  poolMode: 'transaction' | 'session' | 'direct';
+  sslEnabled: boolean;
+  poolMax: number;
+}
+
+export interface DatabaseTableStat {
+  table: string;
+  rows: number;
+}
+
+export interface DatabaseStatusSnapshot {
+  activeBackend: 'postgresql' | 'sqlite';
+  connected: boolean;
+  latencyMs: number;
+  databaseUrlConfigured: boolean;
+  pgError?: string | null;
+  target: {
+    host: string;
+    port: number;
+    database: string;
+    ssl: boolean;
+  } | null;
+  config: DatabaseConnectionConfig;
+  tables: DatabaseTableStat[];
+}
+

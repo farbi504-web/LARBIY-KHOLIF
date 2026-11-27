@@ -6,6 +6,7 @@ import {
   addProductReview,
   audit,
   getDbBackend,
+  getLastPgError,
   getProductReviews,
   getSetting,
   row,
@@ -14,6 +15,7 @@ import {
   setSetting,
   withTransaction,
 } from './db.ts';
+import { SQLITE_TO_PG_TABLES, parseSafeDatabaseTarget } from './pgHelpers.ts';
 import {
   ADMIN_COOKIE,
   CUSTOMER_COOKIE,
@@ -53,6 +55,8 @@ import type {
   CategoryId,
   CategoryItem,
   Customer,
+  DatabaseConnectionConfig,
+  DatabaseStatusSnapshot,
   Lang,
   Order,
   OrderItemSnapshot,
@@ -342,7 +346,7 @@ async function getPublicSettings(): Promise<PublicSettings> {
       fr: 'Samedi au Jeudi : 08h00 - 20h00',
     },
     announcement: {
-      ar: 'مرحباً بكم في مكتبة سليمي · كتب، قرطاسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
+      ar: 'مرحباً بكم في مكتبة سليمي · كتب، أدوات مدرسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
       fr: 'Bienvenue à la Librairie Slimi · Livres, papeterie, cosmétiques, jouets, accessoires & numérique',
     },
     announcementConfig: normalizeAnnouncementConfig({
@@ -373,7 +377,7 @@ async function getPublicSettings(): Promise<PublicSettings> {
   });
 
   const defaultAnnouncement = {
-    ar: 'مرحباً بكم في مكتبة سليمي · كتب، قرطاسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
+    ar: 'مرحباً بكم في مكتبة سليمي · كتب، أدوات مدرسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية',
     fr: 'Bienvenue à la Librairie Slimi · Livres, papeterie, cosmétiques, jouets, accessoires & numérique',
   };
 
@@ -2175,6 +2179,130 @@ export function registerRoutes(app: Express): void {
       } finally {
         clearTimeout(timer);
       }
+    }),
+  );
+
+  const DEFAULT_DB_CONFIG: DatabaseConnectionConfig = {
+    provider: 'supabase',
+    projectName: 'Librairie Slimi',
+    projectRef: '',
+    region: 'eu-west-1',
+    host: 'aws-0-eu-west-1.pooler.supabase.com',
+    port: 6543,
+    databaseName: 'postgres',
+    poolMode: 'transaction',
+    sslEnabled: true,
+    poolMax: 10,
+  };
+
+  async function buildDatabaseStatusSnapshot(): Promise<DatabaseStatusSnapshot> {
+    const storedConfig = await getSetting<Partial<DatabaseConnectionConfig>>('database_config', {});
+    const config: DatabaseConnectionConfig = {
+      provider: storedConfig.provider === 'postgres' ? 'postgres' : 'supabase',
+      projectName: String(storedConfig.projectName || DEFAULT_DB_CONFIG.projectName).slice(0, 80),
+      projectRef: String(storedConfig.projectRef || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 48),
+      region: String(storedConfig.region || DEFAULT_DB_CONFIG.region).slice(0, 48),
+      host: String(storedConfig.host || DEFAULT_DB_CONFIG.host).slice(0, 120),
+      port: Math.max(1, Math.min(65535, Number(storedConfig.port || DEFAULT_DB_CONFIG.port))),
+      databaseName: String(storedConfig.databaseName || DEFAULT_DB_CONFIG.databaseName).slice(0, 64),
+      poolMode:
+        storedConfig.poolMode === 'session' || storedConfig.poolMode === 'direct'
+          ? storedConfig.poolMode
+          : 'transaction',
+      sslEnabled: storedConfig.sslEnabled !== undefined ? Boolean(storedConfig.sslEnabled) : true,
+      poolMax: Math.max(2, Math.min(30, Number(storedConfig.poolMax || DEFAULT_DB_CONFIG.poolMax))),
+    };
+
+    const databaseUrl = (process.env.DATABASE_URL || '').trim();
+    const target = databaseUrl ? parseSafeDatabaseTarget(databaseUrl) : null;
+
+    const startedAt = Date.now();
+    let connected = false;
+    try {
+      await row('SELECT 1 as ok');
+      connected = true;
+    } catch {
+      connected = false;
+    }
+    const latencyMs = Math.max(0, Date.now() - startedAt);
+
+    const tables: Array<{ table: string; rows: number }> = [];
+    if (connected) {
+      for (const spec of SQLITE_TO_PG_TABLES) {
+        try {
+          const rec = await row<{ cnt: number | string }>(`SELECT COUNT(*) as cnt FROM ${spec.table}`);
+          tables.push({ table: spec.table, rows: Number(rec?.cnt || 0) });
+        } catch {
+          tables.push({ table: spec.table, rows: 0 });
+        }
+      }
+    }
+
+    return {
+      activeBackend: getDbBackend(),
+      connected,
+      latencyMs,
+      databaseUrlConfigured: Boolean(databaseUrl),
+      pgError: getLastPgError(),
+      target,
+      config,
+      tables,
+    };
+  }
+
+  // Admin Database Connection Status & Metadata (never accepts or exposes raw passwords)
+  app.get(
+    '/api/admin/database/status',
+    requireAdmin('settings'),
+    asyncHandler(async (_req, res) => {
+      const snapshot = await buildDatabaseStatusSnapshot();
+      res.json(snapshot);
+    }),
+  );
+
+  app.put(
+    '/api/admin/database/config',
+    requireAdmin('settings'),
+    asyncHandler(async (req, res) => {
+      const actor = getAdminUser(req);
+      const body = req.body || {};
+      const poolMode =
+        body.poolMode === 'session' || body.poolMode === 'direct' ? body.poolMode : 'transaction';
+      const defaultPort = poolMode === 'transaction' ? 6543 : 5432;
+      const nextConfig: DatabaseConnectionConfig = {
+        provider: body.provider === 'postgres' ? 'postgres' : 'supabase',
+        projectName: String(body.projectName || 'Librairie Slimi').trim().slice(0, 80) || 'Librairie Slimi',
+        projectRef: String(body.projectRef || '').trim().replace(/[^a-z0-9_-]/gi, '').slice(0, 48),
+        region: String(body.region || 'eu-west-1').trim().slice(0, 48) || 'eu-west-1',
+        host: String(body.host || '').trim().slice(0, 120),
+        port: Math.max(1, Math.min(65535, Number(body.port || defaultPort))),
+        databaseName: String(body.databaseName || 'postgres').trim().slice(0, 64) || 'postgres',
+        poolMode,
+        sslEnabled: body.sslEnabled !== undefined ? Boolean(body.sslEnabled) : true,
+        poolMax: Math.max(2, Math.min(30, Number(body.poolMax || 10))),
+      };
+      await setSetting('database_config', nextConfig);
+      await audit(
+        actor.username,
+        actor.role,
+        'update_database_config',
+        'settings',
+        'database_config',
+        { provider: nextConfig.provider, region: nextConfig.region, poolMode: nextConfig.poolMode },
+        getClientIp(req),
+      );
+      const snapshot = await buildDatabaseStatusSnapshot();
+      res.json({ ok: true, ...snapshot });
+    }),
+  );
+
+  app.post(
+    '/api/admin/database/verify',
+    requireAdmin('settings'),
+    rateLimit('admin-db-verify', 20, 60_000),
+    asyncHandler(async (_req, res) => {
+      const snapshot = await buildDatabaseStatusSnapshot();
+      res.json(snapshot);
     }),
   );
 

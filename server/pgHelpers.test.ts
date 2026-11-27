@@ -4,6 +4,7 @@ import {
   PG_SCHEMA_STATEMENTS,
   SQLITE_TO_PG_TABLES,
   buildPgUpsertSql,
+  parseSafeDatabaseTarget,
   redactDatabaseUrl,
   resolvePgSslConfig,
   translatePlaceholdersToPg,
@@ -80,4 +81,19 @@ test('SQLITE_TO_PG_TABLES covers all 13 tables and generates valid upserts', () 
   for (const name of tableNames) {
     assert.equal(schemaText.includes(`CREATE TABLE IF NOT EXISTS ${name}`), true, `Missing DDL for ${name}`);
   }
+});
+
+test('parseSafeDatabaseTarget extracts host, port, database, ssl without exposing credentials', () => {
+  const parsed = parseSafeDatabaseTarget(
+    'postgresql://postgres.proj123:MySecretPass!@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true',
+  );
+  assert.deepEqual(parsed, {
+    host: 'aws-0-eu-west-1.pooler.supabase.com',
+    port: 6543,
+    database: 'postgres',
+    ssl: true,
+  });
+  assert.equal(JSON.stringify(parsed).includes('MySecretPass'), false);
+  assert.equal(parseSafeDatabaseTarget(''), null);
+  assert.equal(parseSafeDatabaseTarget('not-a-valid-url'), null);
 });

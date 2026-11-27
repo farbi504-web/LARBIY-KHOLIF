@@ -15,7 +15,7 @@ export const TX = {
     },
     hero: {
       kicker: 'وجهة التسوق والخدمات · حطاطبة، تيبازة',
-      title: 'كتب، قرطاسية، تجميل، ألعاب وخدمات رقمية في مكان واحد',
+      title: 'كتب، أدوات مدرسية، تجميل، ألعاب وخدمات رقمية في مكان واحد',
       subtitle:
         'مكتبة سليمي تجمع بين المنتجات المادية المختارة بعناية — من الكتب والمستلزمات المدرسية إلى مستحضرات التجميل وألعاب الأطفال وإكسسوارات الهاتف — والخدمات الرقمية من اشتراكات وشحن ألعاب وتطبيقات.',
       ctaShop: 'تصفح المتجر',
@@ -89,7 +89,7 @@ export const TX = {
     },
     catalog: {
       title: 'كتالوج المتجر',
-      searchPlaceholder: 'ابحث في الكتب، القرطاسية، التجميل، الألعاب والخدمات الرقمية...',
+      searchPlaceholder: 'ابحث في الكتب، الأدوات المدرسية، التجميل، الألعاب والخدمات الرقمية...',
       allCats: 'كل الأقسام',
       allTypes: 'الكل',
       physical: 'منتج مادي',
@@ -286,6 +286,7 @@ export const TX = {
         orders: 'الطلبات',
         reports: 'تقارير المبيعات',
         delivery: 'شركات التوصيل',
+        database: 'ربط قاعدة البيانات',
         categories: 'الأقسام',
         products: 'المنتجات',
         reviews: 'التقييمات',
@@ -881,6 +882,7 @@ export const TX = {
         orders: 'Commandes',
         reports: 'Rapports des ventes',
         delivery: 'Sociétés de livraison',
+        database: 'Base de données',
         categories: 'Catégories',
         products: 'Produits',
         reviews: 'Avis clients',

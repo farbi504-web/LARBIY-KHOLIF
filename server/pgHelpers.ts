@@ -470,3 +470,28 @@ export function buildPgUpsertSql(spec: TableMigrationSpec): string {
   }
   return `INSERT INTO ${spec.table} (${cols}) VALUES (${placeholders}) ON CONFLICT (${conflictTarget}) DO UPDATE SET ${updateCols.join(', ')}`;
 }
+
+export function parseSafeDatabaseTarget(connectionString: string): {
+  host: string;
+  port: number;
+  database: string;
+  ssl: boolean;
+} | null {
+  const trimmed = connectionString.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname) return null;
+    const port = parsed.port ? Number(parsed.port) : 5432;
+    const database = parsed.pathname.replace(/^\/+/, '') || 'postgres';
+    return {
+      host: parsed.hostname,
+      port: Number.isFinite(port) && port > 0 ? port : 5432,
+      database,
+      ssl: Boolean(resolvePgSslConfig(trimmed)),
+    };
+  } catch {
+    return null;
+  }
+}
+

@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   BarChart3,
   CalendarClock,
+  Database,
   KeyRound,
   Layers,
   LogOut,
@@ -49,6 +50,7 @@ import {
   AdminSettingsPanel,
 } from './AdminProductsAndSettings.tsx';
 import { AdminDeliveryIntegrationPanel } from './admin/AdminDeliveryIntegrationPanel.tsx';
+import { AdminDatabasePanel } from './admin/AdminDatabasePanel.tsx';
 import { AdminAiAssistant } from './AdminAiAssistant.tsx';
 import { SlimiLogoMark } from './ServiceArtwork.tsx';
 import { AdminOverviewPanel } from './admin/AdminOverviewPanel.tsx';
@@ -71,6 +73,7 @@ type AdminTab =
   | 'orders'
   | 'reports'
   | 'delivery'
+  | 'database'
   | 'categories'
   | 'products'
   | 'reviews'
@@ -685,6 +688,12 @@ export function AdminConsole({
       show: can('settings'),
     },
     {
+      id: 'database',
+      label: t.admin.nav.database,
+      icon: <Database className="h-4 w-4" />,
+      show: can('settings'),
+    },
+    {
       id: 'settings',
       label: t.admin.nav.settings,
       icon: <Settings className="h-4 w-4" />,
@@ -1115,6 +1124,8 @@ export function AdminConsole({
               }}
             />
           )}
+
+          {tab === 'database' && <AdminDatabasePanel lang={lang} />}
 
           {tab === 'settings' && (
             <AdminSettingsPanel

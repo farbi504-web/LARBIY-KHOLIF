@@ -12,12 +12,12 @@ interface ProductMetaProps {
 }
 
 const DEFAULT_TITLE =
-  'مكتبة سليمي | Librairie Slimi — كتب، قرطاسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية';
+  'مكتبة سليمي | Librairie Slimi — كتب، أدوات مدرسية، تجميل، ألعاب، إكسسوارات وخدمات رقمية';
 const DEFAULT_DESC =
   'مكتبة سليمي في حطاطبة، تيبازة — كتب، مستلزمات مدرسية ومكتبية، مستحضرات تجميل، ألعاب أطفال، إكسسوارات الهاتف، اشتراكات رقمية وشحن الألعاب والتطبيقات.';
 const DEFAULT_OG_TITLE = 'مكتبة سليمي | Librairie Slimi';
 const DEFAULT_OG_DESC =
-  'كتب، قرطاسية، مستحضرات تجميل، ألعاب أطفال، إكسسوارات الهاتف وخدمات رقمية — حطاطبة، تيبازة.';
+  'كتب، أدوات مدرسية ومكتبية، مستحضرات تجميل، ألعاب أطفال، إكسسوارات الهاتف وخدمات رقمية — حطاطبة، تيبازة.';
 const DEFAULT_IMAGE = '/src/assets/images/hero_bookstore_editorial_1795529055490.jpg';
 
 function upsertMeta(attr: 'name' | 'property', key: string, value: string): void {
