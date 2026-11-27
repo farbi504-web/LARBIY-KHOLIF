@@ -2,11 +2,14 @@ import 'dotenv/config';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { closeDb } from './server/db.ts';
+import { closeDb, initDb } from './server/db.ts';
 import { verifySameOriginMutation } from './server/auth.ts';
+import { redactDatabaseUrl } from './server/pgHelpers.ts';
 import { registerRoutes } from './server/routes.ts';
 
 async function startServer() {
+  await initDb();
+
   const app = express();
   app.disable('x-powered-by');
   app.set('etag', false);
@@ -94,19 +97,32 @@ async function startServer() {
     });
   }
 
-  const port = Number(process.env.PORT || 3000);
+  // Global error handler — never leaks stack traces or DATABASE_URL credentials
+  app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[server] unhandled route error:', redactDatabaseUrl(msg));
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
+  const envPort = Number(process.env.PORT || 0);
+  const port = isProd ? envPort || 3000 : envPort && envPort !== 8080 ? envPort : 3000;
   const server = app.listen(port, '0.0.0.0', () => {
     console.log(`Librairie Slimi server listening on http://0.0.0.0:${port}`);
   });
 
+  let shuttingDown = false;
   const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     server.close(() => {
-      closeDb();
-      process.exit(0);
+      void closeDb().finally(() => process.exit(0));
     });
     setTimeout(() => {
-      closeDb();
-      process.exit(0);
+      void closeDb().finally(() => process.exit(0));
     }, 5000).unref();
   };
   process.on('SIGTERM', shutdown);
@@ -114,6 +130,7 @@ async function startServer() {
 }
 
 startServer().catch((err) => {
-  console.error('Failed to start server:', err);
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error('Failed to start server:', redactDatabaseUrl(msg));
   process.exit(1);
 });

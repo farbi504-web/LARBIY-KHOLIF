@@ -37,10 +37,15 @@ import { OrderStatusCharts } from '../OrderStatusCharts.tsx';
 
 const STATUS_BADGE_MAP: Record<OrderStatus, string> = {
   pending: 'bg-amber-500/12 text-amber-800 dark:text-amber-300 border-amber-500/25',
+  pending_confirmation: 'bg-blue-500/12 text-blue-800 dark:text-blue-300 border-blue-500/25',
   confirmed: 'bg-blue-500/12 text-blue-800 dark:text-blue-300 border-blue-500/25',
   processing: 'bg-slate-500/12 text-slate-800 dark:text-slate-300 border-slate-500/25',
+  ready_shipping: 'bg-purple-500/12 text-purple-800 dark:text-purple-300 border-purple-500/25',
+  shipped: 'bg-cyan-500/12 text-cyan-800 dark:text-cyan-300 border-cyan-500/25',
   delivered: 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-300 border-emerald-500/25',
   cancelled: 'bg-rose-500/12 text-rose-800 dark:text-rose-300 border-rose-500/25',
+  returned: 'bg-slate-500/12 text-slate-800 dark:text-slate-300 border-slate-500/25',
+  failed_delivery: 'bg-rose-500/12 text-rose-800 dark:text-rose-300 border-rose-500/25',
 };
 
 export function AdminOverviewPanel({

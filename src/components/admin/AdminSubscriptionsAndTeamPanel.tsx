@@ -511,7 +511,7 @@ export function AdminStaffPanel({
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {(['orders', 'products', 'subscriptions', 'settings', 'audit'] as StaffPermission[]).map(
+          {(['orders', 'products', 'subscriptions', 'settings', 'audit', 'reports'] as StaffPermission[]).map(
             (perm) => (
               <label key={perm} className="inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer">
                 <input
@@ -601,7 +601,7 @@ export function AdminStaffPanel({
                 {isEditing && (
                   <div className="pt-3 border-t border-[var(--border)] space-y-3">
                     <div className="flex flex-wrap items-center gap-3">
-                      {(['orders', 'products', 'subscriptions', 'settings', 'audit'] as StaffPermission[]).map(
+                      {(['orders', 'products', 'subscriptions', 'settings', 'audit', 'reports'] as StaffPermission[]).map(
                         (perm) => (
                           <label key={perm} className="inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer">
                             <input

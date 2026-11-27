@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { FunctionDeclaration, GoogleGenAI, ThinkingLevel, Type, type Content, type Part } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type, type Content, type FunctionDeclaration, type Part } from '@google/genai';
 import { audit, getSetting, row, rows, run, setSetting } from './db.ts';
 import { CATEGORY_ICONS } from '../src/shared/categories.ts';
 import { sanitizeAiMessages } from '../src/shared/aiHelpers.ts';
@@ -367,7 +367,7 @@ async function executeTool(
 
   switch (name) {
     case 'get_store_overview': {
-      const allOrders = rows<{
+      const allOrders = await rows<{
         subtotal: number;
         status: string;
         payment_status: string;
@@ -376,17 +376,19 @@ async function executeTool(
         .filter((o) => o.status !== 'cancelled' && (o.payment_status === 'paid' || o.status === 'delivered' || o.status === 'confirmed'))
         .reduce((acc, o) => acc + Number(o.subtotal), 0);
       const pendingOrders = allOrders.filter((o) => o.status === 'pending' || o.status === 'processing').length;
-      const totalProducts = row<{ cnt: number }>('SELECT COUNT(*) as cnt FROM products')?.cnt || 0;
-      const activeCategories = row<{ cnt: number }>('SELECT COUNT(*) as cnt FROM categories WHERE active = 1')?.cnt || 0;
+      const totalProductsRow = await row<{ cnt: number | string }>('SELECT COUNT(*) as cnt FROM products');
+      const totalProducts = Number(totalProductsRow?.cnt || 0);
+      const activeCategoriesRow = await row<{ cnt: number | string }>('SELECT COUNT(*) as cnt FROM categories WHERE active = 1');
+      const activeCategories = Number(activeCategoriesRow?.cnt || 0);
       const sevenDays = Date.now() + 7 * 86400_000;
-      const subs = rows<{ end_date: string; status: string }>('SELECT end_date, status FROM subscriptions');
+      const subs = await rows<{ end_date: string; status: string }>('SELECT end_date, status FROM subscriptions');
       const expiringSubs = subs.filter((s) => {
         if (s.status === 'cancelled' || s.status === 'expired') return false;
         const t = new Date(s.end_date).getTime();
         return !Number.isNaN(t) && t <= sevenDays;
       }).length;
-      const cfg = getSetting<PublicSettings>('store_config', {} as PublicSettings);
-      const integrations = getSetting<{ chargilySecretKey?: string; chargilyMode?: string }>(
+      const cfg = await getSetting<PublicSettings>('store_config', {} as PublicSettings);
+      const integrations = await getSetting<{ chargilySecretKey?: string; chargilyMode?: string }>(
         'integrations',
         {},
       );
@@ -417,14 +419,14 @@ async function executeTool(
     }
 
     case 'list_categories': {
-      const list = rows<{
+      const list = await rows<{
         id: string;
         name_json: string;
         desc_json: string;
         icon: string;
         sort_order: number;
         active: number;
-        product_count: number;
+        product_count: number | string;
       }>(
         `SELECT c.id, c.name_json, c.desc_json, c.icon, c.sort_order, c.active,
          COALESCE(pc.cnt, 0) as product_count
@@ -459,7 +461,8 @@ async function executeTool(
       const icon = CATEGORY_ICONS.includes(args.icon as CategoryIconName)
         ? (args.icon as CategoryIconName)
         : 'package';
-      const maxOrder = row<{ m: number | null }>('SELECT MAX(sort_order) as m FROM categories')?.m ?? 0;
+      const maxOrderRow = await row<{ m: number | string | null }>('SELECT MAX(sort_order) as m FROM categories');
+      const maxOrder = Number(maxOrderRow?.m ?? 0);
       const sortOrder =
         args.sortOrder !== undefined && Number.isFinite(Number(args.sortOrder))
           ? Math.max(0, Math.min(999, Math.floor(Number(args.sortOrder))))
@@ -468,7 +471,7 @@ async function executeTool(
       const id = 'cat_' + crypto.randomBytes(4).toString('hex');
       const now = new Date().toISOString();
 
-      run(
+      await run(
         `INSERT INTO categories (id, name_json, desc_json, icon, img, sort_order, active, created_at)
          VALUES (?, ?, ?, ?, '', ?, ?, ?)`,
         id,
@@ -479,7 +482,7 @@ async function executeTool(
         active ? 1 : 0,
         now,
       );
-      audit(actor.username, actor.role, 'ai_create_category', 'category', id, { name: nameAr }, ip);
+      await audit(actor.username, actor.role, 'ai_create_category', 'category', id, { name: nameAr }, ip);
       record(`إضافة قسم: ${nameAr}`, `Catégorie ajoutée : ${nameFr}`, true, true);
       return { ok: true, id, name: { ar: nameAr, fr: nameFr }, active, sortOrder };
     }
@@ -489,7 +492,7 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires products permission)' };
       }
       const id = String(args.id || '').trim();
-      const existing = row<{
+      const existing = await row<{
         id: string;
         name_json: string;
         desc_json: string;
@@ -511,10 +514,10 @@ async function executeTool(
       const sortOrder =
         args.sortOrder !== undefined && Number.isFinite(Number(args.sortOrder))
           ? Math.max(0, Math.min(999, Math.floor(Number(args.sortOrder))))
-          : existing.sort_order;
+          : Number(existing.sort_order);
       const active = args.active !== undefined ? Boolean(args.active) : Boolean(existing.active);
 
-      run(
+      await run(
         'UPDATE categories SET name_json = ?, desc_json = ?, icon = ?, sort_order = ?, active = ? WHERE id = ?',
         JSON.stringify({ ar: nameAr, fr: nameFr }),
         JSON.stringify({ ar: descAr, fr: descFr }),
@@ -523,7 +526,7 @@ async function executeTool(
         active ? 1 : 0,
         id,
       );
-      audit(actor.username, actor.role, 'ai_update_category', 'category', id, { name: nameAr, active }, ip);
+      await audit(actor.username, actor.role, 'ai_update_category', 'category', id, { name: nameAr, active }, ip);
       record(`تحديث قسم: ${nameAr}`, `Catégorie mise à jour : ${nameFr}`, true, true);
       return { ok: true, id, name: { ar: nameAr, fr: nameFr }, active, sortOrder };
     }
@@ -533,13 +536,14 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires products permission)' };
       }
       const id = String(args.id || '').trim();
-      const used = row<{ cnt: number }>('SELECT COUNT(*) as cnt FROM products WHERE cat = ?', id)?.cnt || 0;
+      const usedRow = await row<{ cnt: number | string }>('SELECT COUNT(*) as cnt FROM products WHERE cat = ?', id);
+      const used = Number(usedRow?.cnt || 0);
       if (used > 0) {
         return { ok: false, error: `Cannot delete category "${id}" because it has ${used} product(s).` };
       }
-      const info = run('DELETE FROM categories WHERE id = ?', id);
+      const info = await run('DELETE FROM categories WHERE id = ?', id);
       if (info.changes === 0) return { ok: false, error: `Category "${id}" not found` };
-      audit(actor.username, actor.role, 'ai_delete_category', 'category', id, {}, ip);
+      await audit(actor.username, actor.role, 'ai_delete_category', 'category', id, {}, ip);
       record(`حذف قسم: ${id}`, `Catégorie supprimée : ${id}`, true, true);
       return { ok: true, deletedId: id };
     }
@@ -552,7 +556,7 @@ async function executeTool(
       const hasAvail = args.avail !== undefined;
       const availBool = Boolean(args.avail);
 
-      const all = rows<{
+      const all = await rows<{
         id: string;
         cat: string;
         type: string;
@@ -610,8 +614,8 @@ async function executeTool(
       const descFr = String(args.descFr || descAr).trim().slice(0, 500);
 
       const requestedCat = String(args.cat || '').trim();
-      const validCat = row<{ id: string }>('SELECT id FROM categories WHERE id = ?', requestedCat);
-      const firstCat = row<{ id: string }>('SELECT id FROM categories ORDER BY sort_order ASC LIMIT 1');
+      const validCat = await row<{ id: string }>('SELECT id FROM categories WHERE id = ?', requestedCat);
+      const firstCat = await row<{ id: string }>('SELECT id FROM categories ORDER BY sort_order ASC LIMIT 1');
       const cat = (validCat?.id || firstCat?.id || 'shop') as CategoryId;
       const type: ProductType = args.type === 'digital' ? 'digital' : 'physical';
       const price = Math.max(0, Number(args.price) || 0);
@@ -639,7 +643,7 @@ async function executeTool(
       const id = 'prd_' + crypto.randomBytes(6).toString('hex');
       const now = new Date().toISOString();
 
-      run(
+      await run(
         `INSERT INTO products (
           id, cat, type, name_json, desc_json, price, old_price, avail, img,
           needs_ref, pays_json, plans_json, featured, sales_count, created_at, updated_at
@@ -659,7 +663,7 @@ async function executeTool(
         now,
         now,
       );
-      audit(actor.username, actor.role, 'ai_create_product', 'product', id, { name: nameAr, price }, ip);
+      await audit(actor.username, actor.role, 'ai_create_product', 'product', id, { name: nameAr, price }, ip);
       record(`إضافة منتج: ${nameAr}`, `Produit créé : ${nameFr}`, true, true);
       return { ok: true, id, cat, type, name: { ar: nameAr, fr: nameFr }, price, oldPrice, avail, featured, pays };
     }
@@ -669,7 +673,7 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires products permission)' };
       }
       const id = String(args.id || '').trim();
-      const existing = row<{
+      const existing = await row<{
         id: string;
         cat: string;
         type: ProductType;
@@ -690,7 +694,7 @@ async function executeTool(
 
       let cat = existing.cat;
       if (args.cat !== undefined) {
-        const validCat = row<{ id: string }>('SELECT id FROM categories WHERE id = ?', String(args.cat).trim());
+        const validCat = await row<{ id: string }>('SELECT id FROM categories WHERE id = ?', String(args.cat).trim());
         if (validCat) cat = validCat.id;
       }
       const type: ProductType =
@@ -721,7 +725,7 @@ async function executeTool(
       }
 
       const now = new Date().toISOString();
-      run(
+      await run(
         `UPDATE products SET cat = ?, type = ?, name_json = ?, desc_json = ?, price = ?, old_price = ?,
          avail = ?, needs_ref = ?, pays_json = ?, featured = ?, updated_at = ? WHERE id = ?`,
         cat,
@@ -737,7 +741,7 @@ async function executeTool(
         now,
         id,
       );
-      audit(actor.username, actor.role, 'ai_update_product', 'product', id, { name: nameAr, price, avail }, ip);
+      await audit(actor.username, actor.role, 'ai_update_product', 'product', id, { name: nameAr, price, avail }, ip);
       record(`تحديث منتج: ${nameAr}`, `Produit mis à jour : ${nameFr}`, true, true);
       return { ok: true, id, name: { ar: nameAr, fr: nameFr }, price, oldPrice, avail, featured };
     }
@@ -747,10 +751,10 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires products permission)' };
       }
       const id = String(args.id || '').trim();
-      const existing = row<{ name_json: string }>('SELECT name_json FROM products WHERE id = ?', id);
+      const existing = await row<{ name_json: string }>('SELECT name_json FROM products WHERE id = ?', id);
       if (!existing) return { ok: false, error: `Product "${id}" not found` };
-      run('DELETE FROM products WHERE id = ?', id);
-      audit(actor.username, actor.role, 'ai_delete_product', 'product', id, {}, ip);
+      await run('DELETE FROM products WHERE id = ?', id);
+      await audit(actor.username, actor.role, 'ai_delete_product', 'product', id, {}, ip);
       const nm = JSON.parse(existing.name_json) as { ar: string; fr: string };
       record(`حذف منتج: ${nm.ar}`, `Produit supprimé : ${nm.fr}`, true, true);
       return { ok: true, deletedId: id };
@@ -765,7 +769,7 @@ async function executeTool(
       const statusFilter = args.status ? String(args.status).trim() : '';
       const payStatusFilter = args.paymentStatus ? String(args.paymentStatus).trim() : '';
 
-      const all = rows<{
+      const all = await rows<{
         id: string;
         code: string;
         customer_name: string;
@@ -824,7 +828,7 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires orders permission)' };
       }
       const key = String(args.orderIdOrCode || '').trim();
-      const existing = row<{
+      const existing = await row<{
         id: string;
         code: string;
         status: OrderStatus;
@@ -849,7 +853,7 @@ async function executeTool(
       const notes = args.notes !== undefined ? String(args.notes) : existing.notes;
       const now = new Date().toISOString();
 
-      run(
+      await run(
         'UPDATE orders SET status = ?, payment_status = ?, delivery_data = ?, notes = ?, updated_at = ? WHERE id = ?',
         status,
         paymentStatus,
@@ -858,7 +862,7 @@ async function executeTool(
         now,
         existing.id,
       );
-      audit(actor.username, actor.role, 'ai_update_order', 'order', existing.code, { status, paymentStatus }, ip);
+      await audit(actor.username, actor.role, 'ai_update_order', 'order', existing.code, { status, paymentStatus }, ip);
       record(`تحديث الطلب ${existing.code}`, `Commande ${existing.code} mise à jour`, true, true);
       return { ok: true, code: existing.code, status, paymentStatus, deliveryData };
     }
@@ -872,7 +876,7 @@ async function executeTool(
       const expiringDays =
         args.expiringWithinDays !== undefined ? Math.max(0, Math.floor(Number(args.expiringWithinDays))) : null;
 
-      const list = rows<{
+      const list = await rows<{
         id: string;
         customer_name: string;
         customer_phone: string;
@@ -931,7 +935,7 @@ async function executeTool(
       const id = 'sub_' + crypto.randomBytes(6).toString('hex');
       const now = new Date().toISOString();
       const startDate = String(args.startDate || now.slice(0, 10)).trim();
-      run(
+      await run(
         `INSERT INTO subscriptions (
           id, order_id, order_code, customer_name, customer_phone, service_name,
           plan_label, account_info, start_date, end_date, status, notes, created_at
@@ -947,7 +951,7 @@ async function executeTool(
         String(args.notes || '').trim(),
         now,
       );
-      audit(actor.username, actor.role, 'ai_create_subscription', 'subscription', id, { serviceName }, ip);
+      await audit(actor.username, actor.role, 'ai_create_subscription', 'subscription', id, { serviceName }, ip);
       record(`إضافة اشتراك: ${serviceName}`, `Abonnement ajouté : ${serviceName}`, true, true);
       return { ok: true, id, customerName, serviceName, startDate, endDate };
     }
@@ -957,9 +961,9 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires subscriptions permission)' };
       }
       const id = String(args.id || '').trim();
-      const existing = row<{ id: string }>('SELECT id FROM subscriptions WHERE id = ?', id);
+      const existing = await row<{ id: string }>('SELECT id FROM subscriptions WHERE id = ?', id);
       if (!existing) return { ok: false, error: `Subscription "${id}" not found` };
-      run(
+      await run(
         'UPDATE subscriptions SET status = COALESCE(?, status), end_date = COALESCE(?, end_date), account_info = COALESCE(?, account_info), notes = COALESCE(?, notes) WHERE id = ?',
         args.status ? String(args.status) : null,
         args.endDate ? String(args.endDate) : null,
@@ -967,7 +971,7 @@ async function executeTool(
         args.notes !== undefined ? String(args.notes) : null,
         id,
       );
-      audit(actor.username, actor.role, 'ai_update_subscription', 'subscription', id, { status: args.status }, ip);
+      await audit(actor.username, actor.role, 'ai_update_subscription', 'subscription', id, { status: args.status }, ip);
       record(`تحديث اشتراك: ${id}`, `Abonnement mis à jour : ${id}`, true, true);
       return { ok: true, id };
     }
@@ -976,7 +980,7 @@ async function executeTool(
       if (!hasPerm(actor, 'settings')) {
         return { ok: false, error: 'Insufficient permissions (requires settings permission)' };
       }
-      const prev = getSetting<PublicSettings>('store_config', {} as PublicSettings);
+      const prev = await getSetting<PublicSettings>('store_config', {} as PublicSettings);
       const next: PublicSettings = {
         ...prev,
         storeName: {
@@ -1037,8 +1041,8 @@ async function executeTool(
         ccpRip: args.ccpRip !== undefined ? String(args.ccpRip).trim() : prev.ccpRip,
         ccpName: args.ccpName !== undefined ? String(args.ccpName).trim() : prev.ccpName,
       };
-      setSetting('store_config', next);
-      audit(actor.username, actor.role, 'ai_update_settings', 'settings', 'store_config', {}, ip);
+      await setSetting('store_config', next);
+      await audit(actor.username, actor.role, 'ai_update_settings', 'settings', 'store_config', {}, ip);
       record('تحديث إعدادات المتجر', 'Paramètres du site mis à jour', true, true);
       return {
         ok: true,
@@ -1055,7 +1059,7 @@ async function executeTool(
         return { ok: false, error: 'Insufficient permissions (requires audit permission)' };
       }
       const limit = Math.max(1, Math.min(40, Math.floor(Number(args.limit) || 15)));
-      const logs = rows<{
+      const logs = await rows<{
         id: number;
         actor_username: string;
         action: string;
@@ -1071,7 +1075,7 @@ async function executeTool(
       const limit = Math.max(1, Math.min(40, Math.floor(Number(args.limit) || 15)));
       const productId = args.productId ? String(args.productId).trim() : '';
       const list = productId
-        ? rows<{
+        ? await rows<{
             id: string;
             product_id: string;
             product_name_json: string | null;
@@ -1089,7 +1093,7 @@ async function executeTool(
             productId,
             limit,
           )
-        : rows<{
+        : await rows<{
             id: string;
             product_id: string;
             product_name_json: string | null;
@@ -1105,14 +1109,14 @@ async function executeTool(
              LIMIT ?`,
             limit,
           );
-      const total = row<{ cnt: number; avgRating: number | null }>(
-        'SELECT COUNT(*) as cnt, AVG(rating) as avgRating FROM reviews',
+      const total = await row<{ cnt: number | string; avg_rating: number | string | null }>(
+        'SELECT COUNT(*) as cnt, AVG(rating) as avg_rating FROM reviews',
       );
       record('مراجعة تقييمات الزبائن', 'Avis clients consultés', true, false);
       return {
         ok: true,
         totalReviews: Number(total?.cnt || 0),
-        overallAverageRating: total?.avgRating ? Number(Number(total.avgRating).toFixed(1)) : 0,
+        overallAverageRating: total?.avg_rating != null ? Number(Number(total.avg_rating).toFixed(1)) : 0,
         reviews: list.map((r) => {
           let productName: { ar?: string; fr?: string } | null = null;
           if (r.product_name_json) {
@@ -1153,8 +1157,8 @@ async function executeTool(
   }
 }
 
-export function getAdminAiHistory(userId: string): AdminAiMessage[] {
-  const list = rows<{
+export async function getAdminAiHistory(userId: string): Promise<AdminAiMessage[]> {
+  const list = await rows<{
     id: string;
     role: 'user' | 'assistant';
     content: string;
@@ -1181,8 +1185,8 @@ export function getAdminAiHistory(userId: string): AdminAiMessage[] {
   );
 }
 
-export function clearAdminAiHistory(userId: string): void {
-  run('DELETE FROM admin_ai_messages WHERE user_id = ?', userId);
+export async function clearAdminAiHistory(userId: string): Promise<void> {
+  await run('DELETE FROM admin_ai_messages WHERE user_id = ?', userId);
 }
 
 function isTransientGeminiError(err: unknown): boolean {
@@ -1243,9 +1247,11 @@ export async function runAdminAiTurn(params: {
   const ai = createGeminiClient();
   const { actor, message, lang, activeTab, ip } = params;
   const cleanMsg = message.trim();
-  const historyRows = rows<{ role: 'user' | 'assistant'; content: string }>(
-    'SELECT role, content FROM admin_ai_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 16',
-    actor.id,
+  const historyRows = (
+    await rows<{ role: 'user' | 'assistant'; content: string }>(
+      'SELECT role, content FROM admin_ai_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 16',
+      actor.id,
+    )
   ).reverse();
 
   const ctx: ToolContext = {
@@ -1447,7 +1453,7 @@ export async function runAdminAiTurn(params: {
     createdAt: nowAssistant,
   };
 
-  run(
+  await run(
     'INSERT INTO admin_ai_messages (id, user_id, role, content, actions_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     userMsg.id,
     actor.id,
@@ -1456,7 +1462,7 @@ export async function runAdminAiTurn(params: {
     '[]',
     userMsg.createdAt,
   );
-  run(
+  await run(
     'INSERT INTO admin_ai_messages (id, user_id, role, content, actions_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     assistantMsg.id,
     actor.id,

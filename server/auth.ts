@@ -81,16 +81,16 @@ export function clearSessionCookie(res: Response, req: Request, name: string): v
   res.append('Set-Cookie', parts.join('; '));
 }
 
-export function createSession(
+export async function createSession(
   kind: 'admin' | 'customer',
   subjectId: string,
   username: string,
   role: string,
-): string {
+): Promise<string> {
   const token = crypto.randomBytes(32).toString('hex');
   const now = new Date();
   const expires = new Date(now.getTime() + SESSION_TTL_MS);
-  run(
+  await run(
     `INSERT INTO sessions (token, kind, subject_id, username, role, expires_at, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     token,
@@ -104,9 +104,9 @@ export function createSession(
   return token;
 }
 
-export function deleteSession(token: string): void {
+export async function deleteSession(token: string): Promise<void> {
   if (!token) return;
-  run('DELETE FROM sessions WHERE token = ?', token);
+  await run('DELETE FROM sessions WHERE token = ?', token);
 }
 
 export interface SessionRecord {
@@ -118,7 +118,7 @@ export interface SessionRecord {
   expires_at: string;
 }
 
-export function getSession(req: Request, kind: 'admin' | 'customer'): SessionRecord | null {
+export async function getSession(req: Request, kind: 'admin' | 'customer'): Promise<SessionRecord | null> {
   let token: string | undefined;
 
   // 1. Authorization header (Bearer <token>)
@@ -147,14 +147,14 @@ export function getSession(req: Request, kind: 'admin' | 'customer'): SessionRec
   }
 
   if (token) {
-    const sess = row<SessionRecord>(
+    const sess = await row<SessionRecord>(
       'SELECT token, kind, subject_id, username, role, expires_at FROM sessions WHERE token = ? AND kind = ?',
       token,
       kind,
     );
     if (sess) {
       if (new Date(sess.expires_at).getTime() < Date.now()) {
-        deleteSession(token);
+        await deleteSession(token);
         return null;
       }
       return sess;
@@ -164,7 +164,7 @@ export function getSession(req: Request, kind: 'admin' | 'customer'): SessionRec
   // 5. Environment & iframe fallback:
   // If an active, non-expired admin session already exists in DB, maintain continuity
   if (kind === 'admin') {
-    const latestAdmin = row<SessionRecord>(
+    const latestAdmin = await row<SessionRecord>(
       "SELECT token, kind, subject_id, username, role, expires_at FROM sessions WHERE kind = 'admin' ORDER BY created_at DESC LIMIT 1",
     );
     if (latestAdmin && new Date(latestAdmin.expires_at).getTime() > Date.now()) {
@@ -179,13 +179,13 @@ export function isOwnerEnvPasswordSet(): boolean {
   return Boolean(process.env.OWNER_PASSWORD && process.env.OWNER_PASSWORD.trim().length > 0);
 }
 
-export function ownerNeedsClaim(): boolean {
+export async function ownerNeedsClaim(): Promise<boolean> {
   if (isOwnerEnvPasswordSet()) return false;
-  const ownerRow = row<{ id: string }>('SELECT id FROM users WHERE username = ? AND role = ?', 'owner', 'owner');
+  const ownerRow = await row<{ id: string }>('SELECT id FROM users WHERE username = ? AND role = ?', 'owner', 'owner');
   return !ownerRow;
 }
 
-export function verifyAdminLogin(username: string, password: string): StaffUser | null {
+export async function verifyAdminLogin(username: string, password: string): Promise<StaffUser | null> {
   const cleanUser = username.trim().toLowerCase();
   if (cleanUser === 'owner' && isOwnerEnvPasswordSet()) {
     const expected = process.env.OWNER_PASSWORD!.trim();
@@ -203,7 +203,7 @@ export function verifyAdminLogin(username: string, password: string): StaffUser 
     };
   }
 
-  const userRow = row<{
+  const userRow = await row<{
     id: string;
     username: string;
     display_name: string;
@@ -214,7 +214,7 @@ export function verifyAdminLogin(username: string, password: string): StaffUser 
     created_at: string;
   }>('SELECT * FROM users WHERE username = ?', cleanUser);
 
-  if (!userRow || !userRow.active) return null;
+  if (!userRow || !Number(userRow.active)) return null;
   if (!verifyPassword(password, userRow.password_hash)) return null;
 
   let perms: StaffPermission[] = [];
@@ -239,7 +239,7 @@ export function verifyAdminLogin(username: string, password: string): StaffUser 
   };
 }
 
-export function resolveAdminUserFromSession(sess: SessionRecord): StaffUser | null {
+export async function resolveAdminUserFromSession(sess: SessionRecord): Promise<StaffUser | null> {
   if (sess.subject_id === 'owner-env' && sess.role === 'owner') {
     return {
       id: 'owner-env',
@@ -251,7 +251,7 @@ export function resolveAdminUserFromSession(sess: SessionRecord): StaffUser | nu
       createdAt: new Date(0).toISOString(),
     };
   }
-  const userRow = row<{
+  const userRow = await row<{
     id: string;
     username: string;
     display_name: string;
@@ -260,7 +260,7 @@ export function resolveAdminUserFromSession(sess: SessionRecord): StaffUser | nu
     active: number;
     created_at: string;
   }>('SELECT id, username, display_name, role, permissions_json, active, created_at FROM users WHERE id = ?', sess.subject_id);
-  if (!userRow || !userRow.active) return null;
+  if (!userRow || !Number(userRow.active)) return null;
 
   let perms: StaffPermission[] = [];
   try {

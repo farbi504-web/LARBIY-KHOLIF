@@ -160,38 +160,61 @@ export function OrderStatusCharts({
   );
 
   const detailedData = useMemo<DetailedStatusDatum[]>(() => {
+    const statuses: OrderStatus[] = [
+      'pending',
+      'pending_confirmation',
+      'confirmed',
+      'processing',
+      'ready_shipping',
+      'shipped',
+      'delivered',
+      'cancelled',
+      'returned',
+      'failed_delivery',
+    ];
+
     const counts: Record<OrderStatus, { count: number; revenue: number }> = {
       pending: { count: 0, revenue: 0 },
+      pending_confirmation: { count: 0, revenue: 0 },
       confirmed: { count: 0, revenue: 0 },
       processing: { count: 0, revenue: 0 },
+      ready_shipping: { count: 0, revenue: 0 },
+      shipped: { count: 0, revenue: 0 },
       delivered: { count: 0, revenue: 0 },
       cancelled: { count: 0, revenue: 0 },
+      returned: { count: 0, revenue: 0 },
+      failed_delivery: { count: 0, revenue: 0 },
     };
 
     for (const o of orders) {
-      const bucket = counts[o.status];
-      if (!bucket) continue;
-      bucket.count += 1;
-      bucket.revenue += Number(o.subtotal || 0);
+      if (counts[o.status]) {
+        counts[o.status].count += 1;
+        counts[o.status].revenue += Number(o.subtotal || 0);
+      }
     }
 
     const colors: Record<OrderStatus, string> = {
       pending: '#D97706',
+      pending_confirmation: '#3B82F6',
       confirmed: '#2563EB',
       processing: isDark ? '#94A3B8' : '#111318',
+      ready_shipping: '#8B5CF6',
+      shipped: '#0EA5E9',
       delivered: '#059669',
       cancelled: '#D7193F',
+      returned: '#64748B',
+      failed_delivery: '#E11D48',
     };
 
-    return (['pending', 'confirmed', 'processing', 'delivered', 'cancelled'] as OrderStatus[]).map(
-      (status) => ({
+    return statuses
+      .filter((status) => counts[status].count > 0)
+      .map((status) => ({
         status,
         name: t.statuses[status],
         count: counts[status].count,
         revenue: counts[status].revenue,
         color: colors[status],
-      }),
-    );
+      }));
   }, [orders, isDark, t.statuses]);
 
   const completionRate = useMemo(() => {

@@ -19,6 +19,7 @@ import {
   Star,
   Store,
   Sun,
+  Truck,
   UserCheck,
   Users,
   X,
@@ -29,6 +30,7 @@ import type {
   AdminAiMessage,
   AdminCustomerSummary,
   AdminReviewEntry,
+  AdminSettings,
   AuditEntry,
   CategoryItem,
   Lang,
@@ -46,6 +48,7 @@ import {
   AdminProductsPanel,
   AdminSettingsPanel,
 } from './AdminProductsAndSettings.tsx';
+import { AdminDeliveryIntegrationPanel } from './admin/AdminDeliveryIntegrationPanel.tsx';
 import { AdminAiAssistant } from './AdminAiAssistant.tsx';
 import { SlimiLogoMark } from './ServiceArtwork.tsx';
 import { AdminOverviewPanel } from './admin/AdminOverviewPanel.tsx';
@@ -67,6 +70,7 @@ type AdminTab =
   | 'assistant'
   | 'orders'
   | 'reports'
+  | 'delivery'
   | 'categories'
   | 'products'
   | 'reviews'
@@ -127,6 +131,7 @@ export function AdminConsole({
   const [subs, setSubs] = useState<SubscriptionRecord[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [deliverySettings, setDeliverySettings] = useState<AdminSettings | null>(null);
 
   // Cross-panel Filter & Inspector State
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -268,6 +273,9 @@ export function AdminConsole({
     } else if (activeTab === 'audit' && can('audit')) {
       const audRes = await apiJson<{ logs: AuditEntry[] }>('/api/admin/audit');
       setAuditLogs(audRes.logs || []);
+    } else if (activeTab === 'delivery' && can('settings')) {
+      const res = await apiJson<{ settings: AdminSettings }>('/api/admin/settings');
+      setDeliverySettings(res.settings || null);
     }
   }, []);
 
@@ -666,9 +674,15 @@ export function AdminConsole({
     },
     {
       id: 'reports',
-      label: lang === 'fr' ? 'Rapports de ventes' : 'تقارير المبيعات',
+      label: t.admin.nav.reports,
       icon: <BarChart3 className="h-4 w-4" />,
       show: can('orders'),
+    },
+    {
+      id: 'delivery',
+      label: t.admin.nav.delivery,
+      icon: <Truck className="h-4 w-4" />,
+      show: can('settings'),
     },
     {
       id: 'settings',
@@ -1089,6 +1103,17 @@ export function AdminConsole({
 
           {tab === 'reports' && (
             <AdminSalesReportsPanel orders={orders} lang={lang} />
+          )}
+
+          {tab === 'delivery' && deliverySettings && (
+            <AdminDeliveryIntegrationPanel
+              lang={lang}
+              settings={deliverySettings}
+              onReload={() => {
+                void loadTabData('delivery', user);
+                onStoreDataChanged();
+              }}
+            />
           )}
 
           {tab === 'settings' && (

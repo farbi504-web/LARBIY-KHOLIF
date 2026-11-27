@@ -27,10 +27,15 @@ import { getAdminToken } from '../../utils/api.ts';
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
   pending: 'bg-amber-500/12 text-amber-800 dark:text-amber-300 border-amber-500/25',
+  pending_confirmation: 'bg-blue-500/12 text-blue-800 dark:text-blue-300 border-blue-500/25',
   confirmed: 'bg-blue-500/12 text-blue-800 dark:text-blue-300 border-blue-500/25',
   processing: 'bg-slate-500/12 text-slate-800 dark:text-slate-300 border-slate-500/25',
+  ready_shipping: 'bg-purple-500/12 text-purple-800 dark:text-purple-300 border-purple-500/25',
+  shipped: 'bg-cyan-500/12 text-cyan-800 dark:text-cyan-300 border-cyan-500/25',
   delivered: 'bg-emerald-500/12 text-emerald-800 dark:text-emerald-300 border-emerald-500/25',
   cancelled: 'bg-rose-500/12 text-rose-800 dark:text-rose-300 border-rose-500/25',
+  returned: 'bg-slate-500/12 text-slate-800 dark:text-slate-300 border-slate-500/25',
+  failed_delivery: 'bg-rose-500/12 text-rose-800 dark:text-rose-300 border-rose-500/25',
 };
 
 const PAY_STATUS_BADGE: Record<PaymentStatus, string> = {
@@ -102,16 +107,23 @@ export function AdminOrdersPanel({
   }, [inspectedOrder]);
 
   const statusCounts = useMemo(() => {
-    const counts: Record<OrderStatus | 'all', number> = {
+    const counts: Record<string, number> = {
       all: orders.length,
       pending: 0,
+      pending_confirmation: 0,
       confirmed: 0,
       processing: 0,
+      ready_shipping: 0,
+      shipped: 0,
       delivered: 0,
       cancelled: 0,
+      returned: 0,
+      failed_delivery: 0,
     };
     for (const o of orders) {
-      counts[o.status] = (counts[o.status] || 0) + 1;
+      if (counts[o.status] !== undefined) {
+        counts[o.status] += 1;
+      }
     }
     return counts;
   }, [orders]);
@@ -191,33 +203,45 @@ export function AdminOrdersPanel({
 
       {/* Status Segmented Bar */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-        {(['all', 'pending', 'confirmed', 'processing', 'delivered', 'cancelled'] as const).map(
-          (st) => {
-            const active = statusFilter === st;
-            const label = st === 'all' ? t.admin.orders.allStatus : t.statuses[st];
-            return (
-              <button
-                key={st}
-                type="button"
-                onClick={() => onStatusFilterChange(st)}
-                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-colors cursor-pointer ${
-                  active
-                    ? 'border-[#111318] bg-[#111318] text-white dark:border-[#D7193F] dark:bg-[#D7193F]'
-                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+        {(
+          [
+            'all',
+            'pending',
+            'pending_confirmation',
+            'confirmed',
+            'processing',
+            'ready_shipping',
+            'shipped',
+            'delivered',
+            'cancelled',
+            'returned',
+            'failed_delivery',
+          ] as const
+        ).map((st) => {
+          const active = statusFilter === st;
+          const label = st === 'all' ? t.admin.orders.allStatus : t.statuses[st];
+          return (
+            <button
+              key={st}
+              type="button"
+              onClick={() => onStatusFilterChange(st as OrderStatus | 'all')}
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition-colors cursor-pointer ${
+                active
+                  ? 'border-[#111318] bg-[#111318] text-white dark:border-[#D7193F] dark:bg-[#D7193F]'
+                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+              }`}
+            >
+              <span>{label}</span>
+              <span
+                className={`num rounded px-1.5 py-0.5 text-[10px] font-extrabold ${
+                  active ? 'bg-white/15 text-white' : 'bg-[var(--surface-alt)] text-[var(--ink)]'
                 }`}
               >
-                <span>{label}</span>
-                <span
-                  className={`num rounded px-1.5 py-0.5 text-[10px] font-extrabold ${
-                    active ? 'bg-white/15 text-white' : 'bg-[var(--surface-alt)] text-[var(--ink)]'
-                  }`}
-                >
-                  {statusCounts[st]}
-                </span>
-              </button>
-            );
-          },
-        )}
+                {statusCounts[st] || 0}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter Inputs */}
