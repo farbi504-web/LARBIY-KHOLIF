@@ -1,0 +1,8 @@
+{
+  "name": "Remix Librairie Slimi | مكتبة سليمي",
+  "description": "منصة متجر إلكتروني ولوحة إدارة لمكتبة سليمي — قرطاسية، اشتراكات التطبيقات، شحن الألعاب، ودفع الفواتير في تيبازة، الجزائر.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,300 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #FAF9F7;
+  --surface: #FFFFFF;
+  --surface-alt: #F2F0EC;
+  --ink: #111318;
+  --ink-muted: #555861;
+  --royal: #111318;
+  --hero-blue: #111318;
+  --crimson: #D7193F;
+  --crimson-hover: #B81434;
+  --yellow: #D7193F;
+  --gold: #D7193F;
+  --turquoise: #74BFCF;
+  --border: #E5E2DC;
+  --line: #D7193F;
+  --card-shadow: 0 1px 2px rgba(17, 19, 24, 0.04);
+  --elevated-shadow: 0 8px 24px -6px rgba(17, 19, 24, 0.08);
+}
+
+.dark {
+  --bg: #0D0E12;
+  --surface: #15171D;
+  --surface-alt: #1E2129;
+  --ink: #F7F7F9;
+  --ink-muted: #A1A6B3;
+  --royal: #F7F7F9;
+  --hero-blue: #15171D;
+  --crimson: #E83556;
+  --crimson-hover: #D7193F;
+  --yellow: #E83556;
+  --gold: #E83556;
+  --turquoise: #74BFCF;
+  --border: #262933;
+  --line: #E83556;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --elevated-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.48);
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+  }
+
+  html[dir="ltr"] {
+    font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+  }
+
+  [dir="rtl"],
+  [dir="rtl"] * {
+    letter-spacing: 0 !important;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-weight: 700;
+    line-height: 1.18;
+  }
+
+  h2, h3 {
+    font-weight: 700;
+    line-height: 1.28;
+  }
+
+  html[dir="ltr"] h1,
+  html[dir="ltr"] h2,
+  html[dir="ltr"] h3,
+  html[dir="ltr"] .font-display {
+    font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+    font-weight: 800;
+  }
+
+  html[dir="ltr"] h1,
+  html[dir="ltr"] h2 {
+    letter-spacing: -0.025em;
+  }
+
+  p, textarea, input, select {
+    font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  }
+
+  html[dir="ltr"] p,
+  html[dir="ltr"] textarea,
+  html[dir="ltr"] input,
+  html[dir="ltr"] select {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  .num, .tabular-nums {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--crimson);
+    outline-offset: 2px;
+  }
+}
+
+/* Clean architectural card surface (replaces heavy glass blur & inner glare) */
+.liquid-glass {
+  position: relative;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  transition:
+    border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-glass:hover {
+  border-color: rgba(17, 19, 24, 0.18);
+  box-shadow: var(--elevated-shadow);
+}
+
+.dark .liquid-glass:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.liquid-glass-hi {
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: var(--border);
+}
+
+.dark .liquid-glass-hi {
+  background-color: rgba(13, 14, 18, 0.96);
+  border-color: var(--border);
+}
+
+.liquid-glass-pill {
+  background-color: rgba(17, 19, 24, 0.85);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.liquid-glass-pill:hover {
+  background-color: #111318;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.liquid-glass-sheet {
+  background-color: var(--bg);
+}
+
+/* Disable artificial specular sheen sweep */
+.apple-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.apple-sheen::after {
+  display: none;
+}
+
+.apple-btn-primary {
+  background-color: #D7193F;
+  color: #FFFFFF;
+  transition:
+    background-color 0.18s ease,
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-btn-primary:hover:not(:disabled) {
+  background-color: #B81434;
+}
+
+.apple-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.apple-input {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.apple-input:focus {
+  outline: none;
+  border-color: var(--crimson);
+  box-shadow: 0 0 0 3px rgba(215, 25, 63, 0.12);
+}
+
+.dark .apple-input {
+  background-color: var(--surface-alt);
+  border-color: var(--border);
+}
+
+.dark .apple-input:focus {
+  border-color: #E83556;
+  box-shadow: 0 0 0 3px rgba(232, 53, 86, 0.18);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes slimi-marquee-ltr {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes slimi-marquee-rtl {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.slimi-ticker-track {
+  display: inline-flex;
+  width: max-content;
+  will-change: transform;
+  animation-duration: 22s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-play-state: running;
+}
+
+.slimi-ticker-dir-ltr {
+  animation-name: slimi-marquee-ltr;
+}
+
+.slimi-ticker-dir-rtl {
+  animation-name: slimi-marquee-rtl;
+}
+
+.slimi-ticker-slow {
+  animation-duration: 34s;
+}
+
+.slimi-ticker-fast {
+  animation-duration: 14s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.slimi-ticker-track),
+  *:not(.slimi-ticker-track)::before,
+  *:not(.slimi-ticker-track)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .slimi-ticker-track {
+    animation-duration: 38s !important;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only-sheet,
+  .print-only-sheet * {
+    visibility: visible;
+  }
+  .print-only-sheet {
+    position: fixed;
+    inset: 0;
+    background: #ffffff;
+    color: #111318;
+    padding: 24px;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+

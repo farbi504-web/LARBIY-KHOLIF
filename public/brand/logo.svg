@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none" role="img" aria-label="مكتبة سليمي | LIBRAIRIE SLIMI">
+  <!-- Outer crimson book cradle -->
+  <path d="M16 26L23 29.5V88L60 105L97 88V29.5L104 26V92.5L60 112L16 92.5V26Z" fill="#D7193F"/>
+  <!-- Top open book wings -->
+  <path d="M27 11L60 27L93 11V24L60 40L27 24V11Z" fill="#17243B"/>
+  <!-- Bottom book chevron -->
+  <path d="M27 83L60 99L93 83V70L60 86L27 70V83Z" fill="#17243B"/>
+  <!-- Geometric diagonal facets -->
+  <polygon points="27,28 53,40 27,52" fill="#8C1732"/>
+  <polygon points="27,53 54,66 27,77" fill="#74BFCF"/>
+  <polygon points="93,28 67,40 93,52" fill="#74BFCF"/>
+  <polygon points="93,53 66,66 93,77" fill="#0B2D5B"/>
+  <!-- Crimson geometric S ribbon -->
+  <path d="M27 32L93 62.5V74L27 44V32Z" fill="#D7193F"/>
+  <!-- Inner negative-space triangle highlight -->
+  <polygon points="48,59 60,64.5 48,70" fill="#FFFFFF"/>
+  <polygon points="72,41 60,46.5 72,52" fill="#FFFFFF"/>
+</svg>

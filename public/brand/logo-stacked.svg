@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="270" viewBox="0 0 380 270" fill="none" role="img" aria-label="مكتبة سليمي | LIBRAIRIE SLIMI">
+  <rect width="380" height="270" fill="#FFFFFF"/>
+  <g transform="translate(130 22)">
+    <path d="M16 26L23 29.5V88L60 105L97 88V29.5L104 26V92.5L60 112L16 92.5V26Z" fill="#D7193F"/>
+    <path d="M27 11L60 27L93 11V24L60 40L27 24V11Z" fill="#17243B"/>
+    <path d="M27 83L60 99L93 83V70L60 86L27 70V83Z" fill="#17243B"/>
+    <polygon points="27,28 53,40 27,52" fill="#8C1732"/>
+    <polygon points="27,53 54,66 27,77" fill="#74BFCF"/>
+    <polygon points="93,28 67,40 93,52" fill="#74BFCF"/>
+    <polygon points="93,53 66,66 93,77" fill="#0B2D5B"/>
+    <path d="M27 32L93 62.5V74L27 44V32Z" fill="#D7193F"/>
+    <polygon points="48,59 60,64.5 48,70" fill="#FFFFFF"/>
+    <polygon points="72,41 60,46.5 72,52" fill="#FFFFFF"/>
+  </g>
+  <text
+    x="190"
+    y="186"
+    text-anchor="middle"
+    fill="#17243B"
+    font-family="'IBM Plex Sans Arabic', sans-serif"
+    font-size="36"
+    font-weight="700"
+  >مكتبة سليمي</text>
+  <text
+    x="190"
+    y="220"
+    text-anchor="middle"
+    fill="#D7193F"
+    font-family="'Manrope', sans-serif"
+    font-size="19"
+    font-weight="700"
+    letter-spacing="4"
+  >LIBRAIRIE SLIMI</text>
+</svg>
